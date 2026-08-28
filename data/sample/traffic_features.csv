@@ -1,0 +1,5 @@
+timestamp,vehicle_count,queue_length,average_speed,arrival_rate,queue_growth,congestion
+0,4,2,12.75,4,0.0,HIGH
+1,5,3,11.6,1,1.0,HIGH
+2,6,4,11.166666666666666,1,1.0,HIGH
+3,7,5,10.571428571428571,1,1.0,HIGH
