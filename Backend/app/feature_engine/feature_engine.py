@@ -5,7 +5,7 @@ import numpy as np
 class TrafficFeatureEngine:
     """
     Converts vehicle-level tracking data into
-    traffic-level features for SmartFlow.
+    lane-level traffic features for SmartFlow.
     """
 
     def __init__(self, queue_speed_threshold=5.0):
@@ -18,10 +18,10 @@ class TrafficFeatureEngine:
         self.queue_speed_threshold = queue_speed_threshold
 
     def calculate_vehicle_count(self, df):
-        """Count unique vehicles at each timestamp."""
+        """Count unique vehicles per timestamp and lane."""
 
         return (
-            df.groupby("timestamp")["vehicle_id"]
+            df.groupby(["timestamp", "lane_id"])["vehicle_id"]
             .nunique()
             .rename("vehicle_count")
         )
@@ -29,7 +29,7 @@ class TrafficFeatureEngine:
     def calculate_queue_length(self, df):
         """
         Estimate queue length as the number
-        of slow/stationary vehicles.
+        of slow/stationary vehicles per lane.
         """
 
         queued = df[
@@ -37,50 +37,56 @@ class TrafficFeatureEngine:
         ]
 
         return (
-            queued.groupby("timestamp")["vehicle_id"]
+            queued.groupby(
+                ["timestamp", "lane_id"]
+            )["vehicle_id"]
             .nunique()
             .rename("queue_length")
         )
 
     def calculate_average_speed(self, df):
-        """Calculate average speed at each timestamp."""
+        """Calculate average speed per timestamp and lane."""
 
         return (
-            df.groupby("timestamp")["speed"]
+            df.groupby(["timestamp", "lane_id"])["speed"]
             .mean()
             .rename("average_speed")
         )
 
     def calculate_arrival_rate(self, df):
         """
-        Count vehicles based on their first
-        observed timestamp.
+        Count vehicles when they are first observed
+        in a lane.
+
+        This represents new vehicle arrivals.
         """
 
         first_observation = (
-            df.groupby("vehicle_id")["timestamp"]
-            .min()
+            df.sort_values("timestamp")
+            .groupby("vehicle_id")
+            .first()
             .reset_index()
         )
 
         return (
             first_observation
-            .groupby("timestamp")
+            .groupby(["timestamp", "lane_id"])
             .size()
             .rename("arrival_rate")
         )
 
     def calculate_queue_growth(self, features):
         """
-        Calculate change in queue length.
+        Calculate change in queue length for each lane.
 
-        Positive value  -> queue increasing
-        Negative value  -> queue decreasing
-        Zero             -> unchanged
+        Positive → queue increasing
+        Negative → queue decreasing
+        Zero     → unchanged
         """
 
         features["queue_growth"] = (
-            features["queue_length"]
+            features
+            .groupby(level="lane_id")["queue_length"]
             .diff()
             .fillna(0)
         )
@@ -124,13 +130,14 @@ class TrafficFeatureEngine:
 
     def generate_features(self, df):
         """
-        Generate the complete traffic feature table.
+        Generate lane-level traffic features.
         """
 
         required_columns = {
             "timestamp",
             "vehicle_id",
             "speed",
+            "lane_id",
         }
 
         missing_columns = (

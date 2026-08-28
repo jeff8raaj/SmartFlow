@@ -1,6 +1,6 @@
 import pandas as pd
 
-from feature_engine import TrafficFeatureEngine
+from app.feature_engine.feature_engine import TrafficFeatureEngine
 
 
 def main():
